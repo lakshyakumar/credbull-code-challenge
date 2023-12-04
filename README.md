@@ -1,1 +1,0 @@
-# credbull-code-challenge
