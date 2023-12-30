@@ -49,16 +49,21 @@ contract CrowdFundingTest is Test {
 
         // Funding the token owner
         vm.prank(tokenOwner);
-        bool success = crowdFunding.fund(amount);
+        uint256 shares = crowdFunding.fund(amount);
 
-        // Asserting on the successful transaction
-        assertTrue(success);
+        // Asserting share and amount on the successful transaction
+        assertEq(shares, amount);
 
         // GEtting the balance for the crowdFund
         uint256 crowdFundingBalance = mockERC20.balanceOf(
             address(crowdFunding)
         );
+        // asserting on balance for crowdfund
         assertEq(amount, crowdFundingBalance);
+        // Asserting on total supply of shares
+        assertEq(amount, crowdFunding.totalSupply());
+        // Asserting of total assets in vault
+        assertEq(amount, crowdFunding.totalAssets());
     }
 
     /**
@@ -77,12 +82,10 @@ contract CrowdFundingTest is Test {
         vm.expectRevert();
         crowdFunding.fund(amount);
 
-        // Getting the balance for the crowdFund
-        uint256 crowdFundingBalance = mockERC20.balanceOf(
-            address(crowdFunding)
-        );
-        // Asserting on the balance of crowdfund
-        assertEq(0, crowdFundingBalance);
+        // Asserting on the shares of crowdfund
+        assertEq(0, crowdFunding.totalSupply());
+        // Asserting on the asset of crowdfund
+        assertEq(0, crowdFunding.totalAssets());
     }
 
     /**
