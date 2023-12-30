@@ -3,6 +3,8 @@ pragma solidity ^0.8.13;
 
 import {Test} from "forge-std/Test.sol";
 import {CrowdFunding} from "../src/CrowdFunding.sol";
+import {MyModule} from "../src/MyModule.sol";
+import {MockSafe} from "./mocks/MockSafe.sol";
 import {ERC20Mock} from "@openzepplin/contracts/mocks/token/ERC20Mock.sol";
 
 /**
@@ -12,6 +14,8 @@ import {ERC20Mock} from "@openzepplin/contracts/mocks/token/ERC20Mock.sol";
 contract CrowdFundingTest is Test {
     CrowdFunding private crowdFunding;
     ERC20Mock private mockERC20;
+    MockSafe private safe;
+    MyModule private module;
     address tokenOwner;
     address campaignDeployer;
 
@@ -24,12 +28,23 @@ contract CrowdFundingTest is Test {
         // Creating a campaign owner
         campaignDeployer = makeAddr("campaignDeployer");
 
+        // Deploying mock safe
+        safe = new MockSafe();
+
         // Deploying the contract with token owner address
         vm.prank(tokenOwner);
         mockERC20 = new ERC20Mock();
 
         // Creating crowdfund campaign
-        crowdFunding = new CrowdFunding(address(campaignDeployer), mockERC20);
+        crowdFunding = new CrowdFunding(address(safe), mockERC20, 100e18);
+
+        // Creating Module contract
+        module = new MyModule(
+            address(safe),
+            address(crowdFunding),
+            address(mockERC20)
+        );
+        safe.enableModule(address(module));
     }
 
     /**
@@ -110,13 +125,13 @@ contract CrowdFundingTest is Test {
 
         // Withdrawing funds
         vm.prank(campaignDeployer);
-        crowdFunding.withdraw();
+        module.withdraw();
 
         // Getting balances
         uint256 crowdFundingBalance = mockERC20.balanceOf(
             address(crowdFunding)
         );
-        uint256 ownerBalance = mockERC20.balanceOf(address(campaignDeployer));
+        uint256 ownerBalance = mockERC20.balanceOf(address(safe));
 
         // Asserting on balances
         assertEq(0, crowdFundingBalance);
@@ -129,7 +144,7 @@ contract CrowdFundingTest is Test {
      */
     function test_withdrawl_negative() public {
         // Taking the amount to be 100 ERC tokens
-        uint256 amount = 100e18;
+        uint256 amount = 99e18;
 
         // Minting 100 Tokens
         vm.prank(tokenOwner);
@@ -145,13 +160,13 @@ contract CrowdFundingTest is Test {
 
         // Trying Withdrawing funds
         vm.expectRevert();
-        crowdFunding.withdraw();
+        module.withdraw();
 
         // Getting balances
         uint256 crowdFundingBalance = mockERC20.balanceOf(
             address(crowdFunding)
         );
-        uint256 ownerBalance = mockERC20.balanceOf(address(campaignDeployer));
+        uint256 ownerBalance = mockERC20.balanceOf(address(safe));
 
         // Asserting on balances
         assertEq(amount, crowdFundingBalance);
