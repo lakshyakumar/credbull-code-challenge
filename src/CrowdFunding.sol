@@ -20,6 +20,8 @@ contract CrowdFunding is ERC4626, Ownable {
     uint256 public feePercent;
     // Target asset amount for the campaign
     uint256 public campaignTarget;
+    // Expiration time for the contract
+    uint256 public expirationTime;
 
     // Mapping to track funds contributed by each supporter
     mapping(address => uint256) public funds;
@@ -36,13 +38,15 @@ contract CrowdFunding is ERC4626, Ownable {
      * @param _asset The ERC20 token to be used for the crowdfunding campaign.
      * @param _feePercent The percentage of funds to be collected as fees.
      * @param _campaignTarget The target amount of the crowdfunding campaign.
+     * @param _timeToLive The time to live for crowdfunding campaign.
      */
     constructor(
         address _owner,
         address _platformOwner,
         IERC20 _asset,
         uint256 _feePercent,
-        uint256 _campaignTarget
+        uint256 _campaignTarget,
+        uint256 _timeToLive
     ) Ownable(_owner) ERC4626(_asset) ERC20("Vault Mock Token", "vMCK") {
         // Set the ERC20 token and campaign target
         token = _asset;
@@ -51,6 +55,9 @@ contract CrowdFunding is ERC4626, Ownable {
         // Set the platform owner and fee percentage
         platformOwner = _platformOwner;
         feePercent = _feePercent;
+
+        // Setting expiration time
+        expirationTime = block.timestamp + _timeToLive;
     }
 
     /**
@@ -76,6 +83,51 @@ contract CrowdFunding is ERC4626, Ownable {
     function calculateFee(uint256 amount) internal view returns (uint256) {
         // Calculate the fee as a percentage of the total amount
         return ((amount * feePercent) / 100);
+    }
+
+    /**
+     * @notice Sets the expiration time based on the provided time-to-live duration.
+     * @dev Updates the expiration time using the current block timestamp.
+     * @param timeToLive The duration, in seconds, until the expiration time.
+     * @return The updated expiration time.
+     */
+    function setExpiration(uint256 timeToLive) external returns (uint256) {
+        // Calculate the new expiration time by adding the time-to-live duration to the current block timestamp
+        expirationTime = block.timestamp + timeToLive;
+
+        // Return the updated expiration time
+        return expirationTime;
+    }
+
+    /**
+     * @notice Withdraws a specified amount of assets to the given receiver address on behalf of the owner.
+     * @dev Overrides the base contract's withdraw function to add additional checks and functionality.
+     * @param assets The amount of assets (tokens) to be withdrawn.
+     * @param receiver The address that will receive the withdrawn assets.
+     * @param owner The address of the owner initiating the withdrawal.
+     * @return shares The number of shares obtained by the owner after the withdrawal.
+     */
+    function withdraw(
+        uint256 assets,
+        address receiver,
+        address owner
+    ) public override returns (uint256) {
+        // Get the maximum allowed withdrawal amount for the owner
+        uint256 maxAssets = maxWithdraw(owner);
+
+        // Revert if the requested withdrawal exceeds the maximum allowed amount
+        if (assets > maxAssets) {
+            revert ERC4626ExceededMaxWithdraw(owner, assets, maxAssets);
+        }
+
+        // Preview the number of shares that would be obtained for the specified withdrawal amount
+        uint256 shares = previewWithdraw(assets);
+
+        // Perform the withdrawal and update the owner's shares
+        _withdraw(owner, receiver, owner, assets, shares);
+
+        // Return the number of shares obtained by the owner after the withdrawal
+        return shares;
     }
 
     /**

@@ -42,7 +42,8 @@ contract CrowdFundingTest is Test {
             address(platformOwner),
             mockERC20,
             10,
-            100e18
+            100e18,
+            0
         );
 
         // Creating Module contract
@@ -184,5 +185,114 @@ contract CrowdFundingTest is Test {
         // Asserting on balances
         assertEq(amount, crowdFundingBalance);
         assertEq(0, ownerBalance);
+    }
+
+    /**
+     * @notice Tests the negative scenario of the withdrawal function in the CrowdFunding contract.
+     * @dev It funds the contract, attempts to withdraw before the expiration period, and asserts on the resulting balances.
+     */
+    function test_withdrawl_negative_not_expired() public {
+        // Taking the amount to be 100 ERC tokens
+        uint256 amount = 100e18;
+
+        // Minting 100 Tokens
+        vm.prank(tokenOwner);
+        mockERC20.mint(address(tokenOwner), amount);
+
+        // Approving the address for the crowdfund contract
+        vm.prank(tokenOwner);
+        mockERC20.approve(address(crowdFunding), amount);
+
+        // Funding the token owner
+        vm.prank(tokenOwner);
+        crowdFunding.fund(amount);
+
+        // Setting the expiration time in future
+        crowdFunding.setExpiration(200);
+
+        // Trying Withdrawing funds
+        vm.expectRevert();
+        module.withdraw();
+
+        // Getting balances
+        uint256 crowdFundingBalance = mockERC20.balanceOf(
+            address(crowdFunding)
+        );
+        uint256 ownerBalance = mockERC20.balanceOf(address(safe));
+
+        // Asserting on balances
+        assertEq(amount, crowdFundingBalance);
+        assertEq(0, ownerBalance);
+    }
+
+    /**
+     * @notice Tests the withdrawal function in the CrowdFunding contract.
+     * @dev It funds the contract, withdraws the funds, and asserts on the resulting balances.
+     */
+    function test_withdrawl_assets_negative() public {
+        // Taking the amount to be 100 ERC tokens
+        uint256 amount = 99e18;
+
+        // Minting 100 Tokens
+        vm.prank(tokenOwner);
+        mockERC20.mint(address(tokenOwner), amount);
+
+        // Approving the address for the crowdfund contract
+        vm.prank(tokenOwner);
+        mockERC20.approve(address(crowdFunding), amount);
+
+        // Funding the token owner
+        vm.prank(tokenOwner);
+        crowdFunding.fund(amount);
+
+        // Withdrawing funds
+        module.withdraw(address(tokenOwner));
+
+        // Getting balances
+        uint256 crowdFundingBalance = mockERC20.balanceOf(
+            address(crowdFunding)
+        );
+        uint256 ownerBalance = mockERC20.balanceOf(address(safe));
+        uint256 tokenOwnerBalance = mockERC20.balanceOf(address(tokenOwner));
+
+        // Asserting on balances
+        assertEq(0, crowdFundingBalance);
+        assertEq(0, ownerBalance);
+        assertEq(amount, tokenOwnerBalance);
+    }
+
+    function test_withdrawl_assets() public {
+        // Taking the amount to be 100 ERC tokens
+        uint256 amount = 99e18;
+
+        // Minting 100 Tokens
+        vm.prank(tokenOwner);
+        mockERC20.mint(address(tokenOwner), amount);
+
+        // Approving the address for the crowdfund contract
+        vm.prank(tokenOwner);
+        mockERC20.approve(address(crowdFunding), amount);
+
+        // Funding the token owner
+        vm.prank(tokenOwner);
+        crowdFunding.fund(amount);
+
+        crowdFunding.setExpiration(200);
+
+        // Withdrawing funds
+        vm.expectRevert();
+        module.withdraw(address(tokenOwner));
+
+        // Getting balances
+        uint256 crowdFundingBalance = mockERC20.balanceOf(
+            address(crowdFunding)
+        );
+        uint256 ownerBalance = mockERC20.balanceOf(address(safe));
+        uint256 tokenOwnerBalance = mockERC20.balanceOf(address(tokenOwner));
+
+        // Asserting on balances
+        assertEq(amount, crowdFundingBalance);
+        assertEq(0, ownerBalance);
+        assertEq(0, tokenOwnerBalance);
     }
 }
