@@ -7,6 +7,10 @@ import {IERC20} from "@openzepplin/contracts/token/ERC20/IERC20.sol";
 
 // Custom error for campaign target not reached
 error CampaignTargetNotReached(uint256 tokenBalance);
+// Custom error for campaign target reached
+error CampaignTargetReached(uint256 tokenBalance);
+// Custom error for campaign Not expired
+error CampaignNotExpired(uint256 expirationTime);
 
 /**
  * @title MyModule
@@ -53,6 +57,44 @@ contract MyModule is Module {
     }
 
     /**
+     * @notice Initiates a withdrawal for a specified supporter, transferring their entitled funds.
+     * @dev Executes the withdrawal on the crowdfunding campaign if certain conditions are met.
+     * @param supporter The address of the supporter initiating the withdrawal.
+     */
+    function withdraw(address supporter) external {
+        // Get the current balance, target, and expiration time of the crowdfunding campaign
+        uint256 currentCampaignBalance = IERC20(asset).balanceOf(campaign);
+        uint256 campaignTarget = ICrowdFunding(campaign).campaignTarget();
+        uint256 expirationTime = ICrowdFunding(campaign).expirationTime();
+
+        // Revert if the campaign target has been reached
+        if (currentCampaignBalance > campaignTarget) {
+            revert CampaignTargetReached(currentCampaignBalance);
+        }
+
+        // Revert if the campaign has not yet expired
+        if (expirationTime > block.timestamp) {
+            revert CampaignNotExpired(expirationTime);
+        }
+
+        // Determine the maximum withdrawal amount for the supporter
+        uint256 withdrawAmount = ICrowdFunding(campaign).maxWithdraw(supporter);
+
+        // Execute the withdrawal on the crowdfunding campaign
+        exec(
+            campaign,
+            0,
+            abi.encodeWithSignature(
+                "withdraw(uint256,address,address)",
+                withdrawAmount,
+                supporter,
+                supporter
+            ),
+            Enum.Operation.Call
+        );
+    }
+
+    /**
      * @notice Withdraws funds from the crowdfunding campaign.
      * @dev Checks if the current campaign balance is greater than or equal to the target
      *      before executing the withdrawal.
@@ -61,12 +103,15 @@ contract MyModule is Module {
         // Get the current campaign balance and target
         uint256 currentCampaignBalance = IERC20(asset).balanceOf(campaign);
         uint256 campaignTarget = ICrowdFunding(campaign).campaignTarget();
+        uint256 expirationTime = ICrowdFunding(campaign).expirationTime();
 
         // Revert if the campaign target is not reached
         if (currentCampaignBalance < campaignTarget) {
             revert CampaignTargetNotReached(currentCampaignBalance);
         }
-
+        if (expirationTime > block.timestamp) {
+            revert CampaignNotExpired(expirationTime);
+        }
         // Execute the withdrawal on the campaign
         exec(
             campaign,
