@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.0;
 
-import {IERC20} from "@openzepplin/contracts/token/ERC20/IERC20.sol";
+import {ERC4626, ERC20, IERC20} from "@openzepplin/contracts/token/ERC20/extensions/ERC4626.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
 // Custom error for failed transfers
@@ -11,7 +11,7 @@ error TransferFailed();
  * @title CrowdFunding
  * @dev A simple crowdfunding contract that allows supporters to contribute funds using ERC20 tokens.
  */
-contract CrowdFunding is Ownable {
+contract CrowdFunding is ERC4626, Ownable {
     // ERC20 token to be used for funding
     IERC20 public token;
 
@@ -26,36 +26,27 @@ contract CrowdFunding is Ownable {
     /**
      * @dev Constructor to initialize the contract with a specific ERC20 token.
      * @param _owner The owner token address to be used for withdrawing.
-     * @param _token The ERC20 token address to be used for funding.
+     * @param _asset The IERC20 token address to be used for funding.
      */
-    constructor(address _owner, IERC20 _token) Ownable(_owner) {
-        token = _token;
+    constructor(
+        address _owner,
+        IERC20 _asset
+    ) Ownable(_owner) ERC4626(_asset) ERC20("Vault Mock Token", "vMCK") {
+        token = _asset;
     }
 
     /**
-     * @dev External function allowing supporters to contribute funds.
-     * @param amount The amount of funds to be contributed.
-     * @return A boolean indicating whether the contribution was successful.
+     * @notice Allows supporters to contribute funds to the CrowdFunding contract.
+     * @dev It deposits the specified amount of ERC20 tokens, mints shares, and emits a Funded event.
+     * @param amount The amount of ERC20 tokens to be contributed.
+     * @return shares number of shares minted for the supporter.
      */
-    function fund(uint256 amount) external returns (bool) {
-        // Attempt to transfer funds from the supporter to the contract
-        bool success = IERC20(token).transferFrom(
-            msg.sender,
-            address(this),
-            amount
-        );
+    function fund(uint256 amount) external returns (uint256 shares) {
+        // Deposit the specified amount of ERC20 tokens and mint shares
+        shares = deposit(amount, msg.sender);
 
-        // If the transfer is successful, update funds and emit the Funded event
-        if (success) {
-            funds[msg.sender] += amount;
-            emit Funded(msg.sender, amount);
-        } else {
-            // Revert execution and emit the custom TransferFailed error if transfer fails
-            revert TransferFailed();
-        }
-
-        // Return the success status of the transfer
-        return success;
+        // Emit a Funded event to log the contribution
+        emit Funded(msg.sender, amount);
     }
 
     /**
