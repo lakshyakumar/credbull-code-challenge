@@ -17,7 +17,7 @@ contract CrowdFundingTest is Test {
     MockSafe private safe;
     MyModule private module;
     address tokenOwner;
-    address campaignDeployer;
+    address platformOwner;
 
     /**
      * @dev Set up the test environment.
@@ -25,8 +25,9 @@ contract CrowdFundingTest is Test {
     function setUp() public {
         // Creating a token owner
         tokenOwner = makeAddr("tokenOwner");
-        // Creating a campaign owner
-        campaignDeployer = makeAddr("campaignDeployer");
+
+        // Creating a platform owner
+        platformOwner = makeAddr("platformOwner");
 
         // Deploying mock safe
         safe = new MockSafe();
@@ -36,7 +37,13 @@ contract CrowdFundingTest is Test {
         mockERC20 = new ERC20Mock();
 
         // Creating crowdfund campaign
-        crowdFunding = new CrowdFunding(address(safe), mockERC20, 100e18);
+        crowdFunding = new CrowdFunding(
+            address(safe),
+            address(platformOwner),
+            mockERC20,
+            10,
+            100e18
+        );
 
         // Creating Module contract
         module = new MyModule(
@@ -111,6 +118,9 @@ contract CrowdFundingTest is Test {
         // Taking the amount to be 100 ERC tokens
         uint256 amount = 100e18;
 
+        // Defining a platform fee
+        uint256 fee = 10e18;
+
         // Minting 100 Tokens
         vm.prank(tokenOwner);
         mockERC20.mint(address(tokenOwner), amount);
@@ -124,7 +134,6 @@ contract CrowdFundingTest is Test {
         crowdFunding.fund(amount);
 
         // Withdrawing funds
-        vm.prank(campaignDeployer);
         module.withdraw();
 
         // Getting balances
@@ -132,10 +141,14 @@ contract CrowdFundingTest is Test {
             address(crowdFunding)
         );
         uint256 ownerBalance = mockERC20.balanceOf(address(safe));
+        uint256 platformOwnerBalance = mockERC20.balanceOf(
+            address(platformOwner)
+        );
 
         // Asserting on balances
         assertEq(0, crowdFundingBalance);
-        assertEq(amount, ownerBalance);
+        assertEq(fee, platformOwnerBalance);
+        assertEq(amount - fee, ownerBalance);
     }
 
     /**
