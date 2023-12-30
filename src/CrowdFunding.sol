@@ -14,6 +14,7 @@ error TransferFailed();
 contract CrowdFunding is ERC4626, Ownable {
     // ERC20 token to be used for funding
     IERC20 public token;
+    uint256 public campaignTarget;
 
     // Mapping to track funds contributed by each supporter
     mapping(address => uint256) public funds;
@@ -21,18 +22,22 @@ contract CrowdFunding is ERC4626, Ownable {
     // Event emitted when a supporter contributes funds
     event Funded(address indexed supporter, uint256 amount);
     // Event emitted when a owner withdraws funds
-    event Withdrawl(uint256 amount);
+    event Withdrawal(uint256 amount);
 
     /**
-     * @dev Constructor to initialize the contract with a specific ERC20 token.
-     * @param _owner The owner token address to be used for withdrawing.
-     * @param _asset The IERC20 token address to be used for funding.
+     * @dev Constructor for the CrowdFundingV6 contract.
+     * @param _owner The address that will be set as the owner of the contract.
+     * @param _asset The ERC20 token to be used for the crowdfunding campaign.
+     * @param _campaignTarget The target amount of the crowdfunding campaign.
      */
     constructor(
         address _owner,
-        IERC20 _asset
+        IERC20 _asset,
+        uint256 _campaignTarget
     ) Ownable(_owner) ERC4626(_asset) ERC20("Vault Mock Token", "vMCK") {
+        // Set the ERC20 token and campaign target
         token = _asset;
+        campaignTarget = _campaignTarget;
     }
 
     /**
@@ -66,6 +71,6 @@ contract CrowdFunding is ERC4626, Ownable {
         }
 
         // Emit a Withdrawal event to log the successful withdrawal
-        emit Withdrawl(tokenBalance);
+        emit Withdrawal(tokenBalance);
     }
 }
